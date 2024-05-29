@@ -1,0 +1,17 @@
+# SET BASE IMAGE
+FROM node:22-slim
+
+# SET WORKDIR IN CONTAINER
+WORKDIR /app
+
+# COPY CONTENT TO /app
+COPY . .
+
+# INSTALL DEPENDENCIES FROM package.json AND package-lock.json
+RUN npm install
+
+# LISTEN ON PORT 8000
+EXPOSE 9000
+
+# COMMAND TO RUN AFTER STARTING THE CONTAINER
+CMD ["npm", "start"]

@@ -25,7 +25,11 @@ class Weather extends React.Component {
 
   async componentDidMount() {
     const weather = await getWeatherFromApi();
-    this.setState({icon: weather.icon.slice(0, -1)});
+    if (weather && weather.icon) {
+      this.setState({ icon: weather.icon.slice(0, -1) });
+    } else {
+      console.error("Weather data is incomplete or undefined.");
+    }
   }
 
   render() {

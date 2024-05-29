@@ -2,7 +2,7 @@
 FROM node:22-slim
 
 # SET WORKDIR IN CONTAINER
-WORKDIR /app
+WORKDIR /weatherapp/backend
 
 # COPY CONTENT TO /app
 COPY . .

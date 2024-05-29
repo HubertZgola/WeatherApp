@@ -1,6 +1,7 @@
 version: '3.8'
 services:
   frontend:
+    container_name: frontend_weather_app
     build: 
       context: ./frontend
       dockerfile: Dockerfile
@@ -11,6 +12,7 @@ services:
     depends_on:
       - backend
   backend:
+    container_name: backend_weather_app
     build: 
       context: ./backend
       dockerfile: Dockerfile

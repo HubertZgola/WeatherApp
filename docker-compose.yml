@@ -11,6 +11,7 @@ services:
       - "8000:8000"
     depends_on:
       - backend
+
   backend:
     container_name: backend_weather_app
     build: 
@@ -20,3 +21,14 @@ services:
       - "9000:9000"
     volumes:
       - ./backend:/weatherapp/backend
+
+  reverse-proxy:
+    image: nginx:latest
+    container_name: reverse_proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - frontend
+      - backend

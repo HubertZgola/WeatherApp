@@ -1,135 +1,79 @@
 ---
-- name: Install Docker on Ubuntu
-  hosts: all
-  become: true
-  vars:
-    arch_mapping:
-      x86_64: amd64
-      aarch64: arm64
+- name: Deploy Weather App with Docker and Nginx
+  hosts: myazurevm
+  become: yes
 
   tasks:
-    - name: Create Nginx configuration for reverse proxy
-      copy:
-        dest: /etc/nginx/nginx.conf
-        content: |
-          events { }
-
-          http {
-            server {
-              listen 80;
-
-              location / {
-                proxy_pass http://frontend:8000; # Proxy dla frontendu
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-              }
-
-              location /api/ {
-                proxy_pass http://backend:9000; # Proxy dla backendu
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-              }
-            }
-          }
-        owner: root
-        group: root
-        mode: "0644"
-      notify:
-        - restart nginx
-
-    - name: Install Git
+    - name: Update APT package list
       apt:
-        name: git
+        update_cache: yes
+
+    - name: Install dependencies
+      apt:
+        name: containerd
+        state: present
+
+    - name: Install Docker
+      apt:
+        name: docker.io
         state: present
         update_cache: yes
 
-    - name: Creating an .env file
+    - name: Install Docker Compose
+      apt:
+        name: docker-compose
+        state: present
+
+    - name: Clone repository
+      git:
+        repo: "https://github.com/HubertZgola/weatherapp.git"
+        dest: /weatherapp
+
+    - name: Create .env file in backend
       copy:
+        content: "APPID=Your API key\n"
         dest: /weatherapp/backend/.env
-        content: |
-          APPID=4865c959fd0944003c9e53ba2023065e
-          MAP_ENDPOINT=http://api.openweathermap.org/data/2.5
-          TARGET_CITY=Helsinki,fi
-          PORT=9000
-      become: true
-    - name: Update and upgrade all packages to the latest version
-      apt:
-        update_cache: true
-        upgrade: dist
-        cache_valid_time: 3600
 
-    - name: Install required packages
-      apt:
-        pkg:
-          - apt-transport-https
-          - ca-certificates
-          - curl
-          - gnupg
-          - software-properties-common
-
-    - name: Create directory for Docker's GPG key
-      file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: "0755"
-
-    - name: Add Docker's official GPG key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        keyring: /etc/apt/keyrings/docker.gpg
+    - name: Build and run Docker containers
+      community.docker.docker_compose_v2:
+        project_src: /weatherapp
         state: present
+        build: always
 
-    - name: Print architecture variables
-      debug:
-        msg: "Architecture: {{ ansible_architecture }}, Codename: {{ ansible_lsb.codename }}"
-
-    - name: Add Docker repository
-      apt_repository:
-        repo: >-
-          deb [arch={{ arch_mapping[ansible_architecture] | default(ansible_architecture) }}
-          signed-by=/etc/apt/keyrings/docker.gpg]
-          https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable
-        filename: docker
-        state: present
-
-    - name: Install Docker and related packages
-      apt:
-        name: "{{ item }}"
-        state: present
-        update_cache: true
-      loop:
-        - docker-ce
-        - docker-ce-cli
-        - containerd.io
-        - docker-buildx-plugin
-        - docker-compose-plugin
-
-    - name: Add Docker group
-      group:
-        name: docker
-        state: present
-
-    - name: Add user to Docker group
-      user:
-        name: "{{ ansible_user }}"
-        groups: docker
-        append: true
-
-    - name: Enable and start Docker services
-      systemd:
-        name: "{{ item }}"
-        enabled: true
+    - name: Wait for backend to be up
+      wait_for:
+        port: 9000
         state: started
-      loop:
-        - docker.service
-        - containerd.service
+        delay: 10
+        timeout: 300
 
-  handlers:
-    - name: restart nginx
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Setup Nginx as a Reverse Proxy
+      blockinfile:
+        path: /etc/nginx/sites-available/default
+        block: |
+          server {
+            listen 80;
+            location / {
+              proxy_pass http://localhost:8000;
+            }
+            location /api/ {
+              proxy_pass http://localhost:9000;
+            }
+          }
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+
+    - name: Restart Nginx to apply config
       systemd:
         name: nginx
         state: restarted
+
+    # - name: Add SSH public key
+    #   authorized_key:
+    #     user: ubuntu
+    #     state: present
+    #     key: "{{ lookup('file', 'id_rsa_internship.pub') }}"

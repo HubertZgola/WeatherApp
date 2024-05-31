@@ -7,11 +7,10 @@ const fetch = require('node-fetch');
 const cors = require('kcors');
 
 const appId = process.env.APPID || console.log("APPID_ERROR");
-const mapURI = process.env.MAP_ENDPOINT || console.log("MAP_ENDPOINT_ERROR");
-const targetCity = process.env.TARGET_CITY || console.log("TARGET_CITY_ERROR");
+const mapURI = process.env.MAP_ENDPOINT || 'http://api.openweathermap.org/data/2.5';
+const targetCity = process.env.TARGET_CITY || 'Helsinki,fi';
 
-const port = process.env.PORT || console.log("PORT_ERROR");
-
+const port = process.env.PORT || '9000';
 const app = new Koa();
 
 app.use(cors());

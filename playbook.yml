@@ -2,6 +2,10 @@
 - name: Deploy Weather App with Docker and Nginx
   hosts: myazurevm
   become: yes
+  vars_prompt:
+    - name: "api_key"
+      prompt: "Please enter your OpenWeatherMap API key"
+      private: no
 
   tasks:
     - name: Update APT package list
@@ -31,7 +35,7 @@
 
     - name: Create .env file in backend
       copy:
-        content: "APPID=Your API key\n"
+        content: "APPID={{ api_key }}\n"
         dest: /weatherapp/backend/.env
 
     - name: Build and run Docker containers

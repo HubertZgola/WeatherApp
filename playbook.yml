@@ -17,6 +17,13 @@
         name: containerd
         state: present
 
+    - name: Install Node.js and NPM
+      apt:
+        name:
+          - nodejs
+          - npm
+        state: present
+
     - name: Install Docker
       apt:
         name: docker.io
@@ -32,24 +39,41 @@
       git:
         repo: "https://github.com/HubertZgola/weatherapp.git"
         dest: /weatherapp
+        force: yes
+
+    - name: Install NPM dependencies
+      command: npm install
+      args:
+        chdir: /weatherapp/backend
 
     - name: Create .env file in backend
       copy:
         content: "APPID={{ api_key }}\n"
         dest: /weatherapp/backend/.env
 
-    - name: Build and run Docker containers
-      community.docker.docker_compose_v2:
-        project_src: /weatherapp
-        state: present
-        build: always
+    - name: Build and run Docker containers using Docker Compose binary
+      command: /usr/local/bin/docker-compose -f /weatherapp/docker-compose.yml up -d --build
+      args:
+        chdir: /weatherapp
 
     - name: Wait for backend to be up
       wait_for:
         port: 9000
         state: started
         delay: 10
-        timeout: 60
+        timeout: 15
+      register: wait_result
+      failed_when: wait_result.elapsed > 300
+      ignore_errors: yes
+
+    - name: Display backend logs if wait_for fails
+      when: wait_result.failed
+      command: docker logs backend_weather_app
+      register: backend_logs
+
+    - debug:
+        msg: "{{ backend_logs.stdout }}"
+      when: wait_result.failed
 
     - name: Install Nginx
       apt:
@@ -61,14 +85,20 @@
         path: /etc/nginx/sites-available/default
         block: |
           server {
-            listen 80;
-            location / {
-              proxy_pass http://localhost:8000;
-            }
-            location /api/ {
-              proxy_pass http://localhost:9000;
-            }
-          }
+            listen 80;  # Nasłuchuje na porcie 80 dla wszystkich interfejsów sieciowych
+            server_name 20.215.41.34;  # Możesz użyć publicznego adresu IP jako server_name
+          location / {
+            proxy_pass http://localhost:8000;  # Przekierowanie do aplikacji lokalnej
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;}
+          location /api/ {
+            proxy_pass http://localhost:9000;  # Przekierowanie do serwera API lokalnego
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;}}
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
 
     - name: Restart Nginx to apply config

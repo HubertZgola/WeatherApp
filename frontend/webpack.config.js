@@ -5,7 +5,7 @@ const TransferWebpackPlugin = require('transfer-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 const GLOBALS = {
-  'process.env.ENDPOINT': JSON.stringify(process.env.ENDPOINT || 'http://20.215.41.34:9000/api'),
+  'process.env.ENDPOINT': JSON.stringify(process.env.ENDPOINT || 'https://weatherapp.polandcentral.cloudapp.azure.com/api'),
 };
 
 module.exports = {
@@ -26,11 +26,15 @@ module.exports = {
     contentBase: 'src/public',
     historyApiFallback: true,
     disableHostCheck: true,
-    headers: {
-      "Permissions-Policy": ""
-    },
     host: process.env.HOST || '0.0.0.0',
     port: process.env.PORT || 8000,
+    public: '20.215.41.34:8000',
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+  },
+    proxy: {
+      "/api": "http://localhost:9000"
+  }
   },
   output: {
     filename: '[name].[hash:8].js',

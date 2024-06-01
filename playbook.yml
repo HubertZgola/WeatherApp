@@ -4,7 +4,7 @@
   become: yes
   vars_prompt:
     - name: "api_key"
-      prompt: "Please enter your OpenWeatherMap API key"
+      prompt: "Please enter your OpenWeatherMap API key\n"
       private: no
 
   tasks:
@@ -14,26 +14,19 @@
 
     - name: Install dependencies
       apt:
-        name: containerd
+        name:
+          - containerd
+          - git
+          - snapd
         state: present
 
-    - name: Install Node.js and NPM
+    - name: Install Docker and Docker-Compose
       apt:
         name:
-          - nodejs
-          - npm
-        state: present
-
-    - name: Install Docker
-      apt:
-        name: docker.io
+          - docker.io
+          - docker-compose
         state: present
         update_cache: yes
-
-    - name: Install Docker Compose
-      apt:
-        name: docker-compose
-        state: present
 
     - name: Clone repository
       git:
@@ -41,39 +34,15 @@
         dest: /weatherapp
         force: yes
 
-    - name: Install NPM dependencies
-      command: npm install
-      args:
-        chdir: /weatherapp/backend
-
     - name: Create .env file in backend
       copy:
-        content: "APPID={{ api_key }}\n"
+        content: "APPID={{ api_key }}"
         dest: /weatherapp/backend/.env
 
     - name: Build and run Docker containers using Docker Compose binary
       command: /usr/local/bin/docker-compose -f /weatherapp/docker-compose.yml up -d --build
       args:
         chdir: /weatherapp
-
-    - name: Wait for backend to be up
-      wait_for:
-        port: 9000
-        state: started
-        delay: 10
-        timeout: 15
-      register: wait_result
-      failed_when: wait_result.elapsed > 300
-      ignore_errors: yes
-
-    - name: Display backend logs if wait_for fails
-      when: wait_result.failed
-      command: docker logs backend_weather_app
-      register: backend_logs
-
-    - debug:
-        msg: "{{ backend_logs.stdout }}"
-      when: wait_result.failed
 
     - name: Install Nginx
       apt:
@@ -85,21 +54,49 @@
         path: /etc/nginx/sites-available/default
         block: |
           server {
-            listen 80;  # Nasłuchuje na porcie 80 dla wszystkich interfejsów sieciowych
-            server_name 20.215.41.34;  # Możesz użyć publicznego adresu IP jako server_name
-          location / {
-            proxy_pass http://localhost:8000;  # Przekierowanie do aplikacji lokalnej
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;}
-          location /api/ {
-            proxy_pass http://localhost:9000;  # Przekierowanie do serwera API lokalnego
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;}}
-        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+            listen 80;
+            server_name weatherapp.polandcentral.cloudapp.azure.com;
+            return 301 https://$host$request_uri;}
+
+            server {
+              listen 443 ssl;
+              server_name weatherapp.polandcentral.cloudapp.azure.com;
+
+              ssl_certificate /etc/letsencrypt/live/weatherapp.polandcentral.cloudapp.azure.com/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/weatherapp.polandcentral.cloudapp.azure.com/privkey.pem;
+              ssl_protocols TLSv1.2 TLSv1.3;
+              ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
+              ssl_prefer_server_ciphers on;
+
+            location / {
+              proxy_pass http://localhost:8000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;}
+
+            location /api/ {
+              proxy_pass http://localhost:9000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;}}
+
+    - name: Install Certbot
+      snap:
+        name: certbot
+        classic: yes
+
+    - name: Create symlink for Certbot
+      file:
+        src: /snap/bin/certbot
+        dest: /usr/bin/certbot
+        state: link
+
+    - name: Generate SSL certificate with Certbot for Nginx
+      command: certbot certonly --nginx --non-interactive --register-unsafely-without-email --agree-tos -d weatherapp.polandcentral.cloudapp.azure.com
+      args:
+        creates: /etc/letsencrypt/live/weatherapp.polandcentral.cloudapp.azure.com/fullchain.pem
 
     - name: Restart Nginx to apply config
       systemd:

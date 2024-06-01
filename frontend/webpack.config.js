@@ -26,6 +26,9 @@ module.exports = {
     contentBase: 'src/public',
     historyApiFallback: true,
     disableHostCheck: true,
+    headers: {
+      "Permissions-Policy": ""
+    },
     host: process.env.HOST || '0.0.0.0',
     port: process.env.PORT || 8000,
   },

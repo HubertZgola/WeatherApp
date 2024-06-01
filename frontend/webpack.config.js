@@ -26,7 +26,7 @@ module.exports = {
     contentBase: 'src/public',
     historyApiFallback: true,
     disableHostCheck: true,
-    host: process.env.HOST || '20.215.41.34',
+    host: process.env.HOST || '0.0.0.0',
     port: process.env.PORT || 8000,
   },
   output: {

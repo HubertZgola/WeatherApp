@@ -17,7 +17,6 @@
         name:
           - containerd
           - git
-          - snapd
         state: present
 
     - name: Install Docker and Docker-Compose
@@ -56,47 +55,20 @@
           server {
             listen 80;
             server_name weatherapp.polandcentral.cloudapp.azure.com;
-            return 301 https://$host$request_uri;}
 
-            server {
-              listen 443 ssl;
-              server_name weatherapp.polandcentral.cloudapp.azure.com;
+          location / {
+            proxy_pass http://localhost:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;}
 
-              ssl_certificate /etc/letsencrypt/live/weatherapp.polandcentral.cloudapp.azure.com/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/weatherapp.polandcentral.cloudapp.azure.com/privkey.pem;
-              ssl_protocols TLSv1.2 TLSv1.3;
-              ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
-              ssl_prefer_server_ciphers on;
-
-            location / {
-              proxy_pass http://localhost:8000;
-              proxy_set_header Host $host;
-              proxy_set_header X-Real-IP $remote_addr;
-              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $scheme;}
-
-            location /api/ {
-              proxy_pass http://localhost:9000;
-              proxy_set_header Host $host;
-              proxy_set_header X-Real-IP $remote_addr;
-              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $scheme;}}
-
-    - name: Install Certbot
-      snap:
-        name: certbot
-        classic: yes
-
-    - name: Create symlink for Certbot
-      file:
-        src: /snap/bin/certbot
-        dest: /usr/bin/certbot
-        state: link
-
-    - name: Generate SSL certificate with Certbot for Nginx
-      command: certbot certonly --nginx --non-interactive --register-unsafely-without-email --agree-tos -d weatherapp.polandcentral.cloudapp.azure.com
-      args:
-        creates: /etc/letsencrypt/live/weatherapp.polandcentral.cloudapp.azure.com/fullchain.pem
+          location /api/ {
+            proxy_pass http://localhost:9000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;}}
 
     - name: Restart Nginx to apply config
       systemd:

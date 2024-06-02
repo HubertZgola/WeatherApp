@@ -7,6 +7,14 @@
       prompt: "Please enter your OpenWeatherMap API key\n"
       private: no
 
+    - name: "letsencrypt_email"
+      prompt: "Please enter your Let's Encrypt email"
+      private: no
+
+    - name: "domain_name"
+      prompt: "Please enter your domain name"
+      private: no
+
   tasks:
     - name: Update APT package list
       apt:
@@ -17,6 +25,13 @@
         name:
           - containerd
           - git
+        state: present
+
+    - name: Install certbot and python3-certbot-nginx
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
         state: present
 
     - name: Install Docker and Docker-Compose
@@ -48,27 +63,50 @@
         name: nginx
         state: present
 
+    - name: Remove default nginx config
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Generate SSL certificate using Certbot
+      become: yes
+      shell: |
+        certbot --nginx -m {{ letsencrypt_email }} --non-interactive --agree-tos --redirect -d {{ domain_name }}
+      args:
+        creates: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
+
     - name: Setup Nginx as a Reverse Proxy
       blockinfile:
         path: /etc/nginx/sites-available/default
         block: |
           server {
             listen 80;
-            server_name weatherapp.polandcentral.cloudapp.azure.com;
+            server_name {{ domain_name }};
+            return 301 https://$host$request_uri;
+          }
 
-          location / {
-            proxy_pass http://localhost:8000;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;}
+          server {
+            listen 443 ssl;
+            server_name {{ domain_name }};
 
-          location /api/ {
-            proxy_pass http://localhost:9000;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;}}
+            ssl_certificate /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem;
+            ssl_certificate_key /etc/letsencrypt/live/{{ domain_name }}/privkey.pem;
+
+            location / {
+              proxy_pass http://localhost:8000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            location /api/ {
+              proxy_pass http://localhost:9000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+            }}
 
     - name: Restart Nginx to apply config
       systemd:

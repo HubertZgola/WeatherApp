@@ -7,7 +7,7 @@ const fetch = require('node-fetch');
 const cors = require('kcors');
 
 const appId = process.env.APPID || console.log("APPID_ERROR");
-const mapURI = process.env.MAP_ENDPOINT || 'http://api.openweathermap.org/data/2.5';
+const mapURI = process.env.MAP_ENDPOINT || 'https://api.openweathermap.org/data/2.5';
 const targetCity = process.env.TARGET_CITY || 'Helsinki,fi';
 
 const port = process.env.PORT || '9000';

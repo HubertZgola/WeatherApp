@@ -2,16 +2,21 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 
 const baseURL = process.env.ENDPOINT;
+console.log('API Base URL:', baseURL);
 
 const getWeatherFromApi = async () => {
-  try {
-    const response = await fetch(`${baseURL}/weather`);
-    return response.json();
-  } catch (error) {
-    console.error(error);
-  }
+  const url = `${baseURL}/weather`; // Skonstruowanie pełnego URL
+  console.log('Requesting weather data from:', url); // Logowanie pełnego URL
 
-  return {};
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    console.log('Received weather data:', data); // Logowanie otrzymanych danych
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch weather data:', error); // Logowanie błędu
+    return {};
+  }
 };
 
 class Weather extends React.Component {

@@ -1,6 +1,6 @@
 ---
 - name: Deploy Weather App with Docker and Nginx
-  hosts: myazurevm
+  hosts: azure_vm
   become: true
   vars_prompt:
     - name: "api_key"
@@ -42,6 +42,11 @@
         dest: /weatherapp
         force: yes
 
+    - name: Update webpack endpoint
+      replace:
+        path: /weatherapp/frontend/webpack.config.js
+        regexp: "'process.env.ENDPOINT': JSON.stringify\\(process.env.ENDPOINT \\|\\| 'http://localhost:9000/api'\\)"
+        replace: "'process.env.ENDPOINT': JSON.stringify(process.env.ENDPOINT || 'https://{{ domain_name }}/api')"
     - name: Create .env file in backend
       copy:
         content: "APPID={{ api_key }}"
@@ -57,10 +62,10 @@
         name: nginx
         state: present
 
-    - name: Remove default nginx config
-      file:
-        path: /etc/nginx/sites-enabled/default
-        state: absent
+    # - name: Remove default nginx config
+    #   file:
+    #     path: /etc/nginx/sites-enabled/default
+    #     state: absent
 
     - name: Install certbot and python3-certbot-nginx
       apt:
@@ -69,20 +74,14 @@
           - python3-certbot-nginx
         state: present
 
-    - name: Generate SSL certificate using Certbot
-      become: yes
-      shell: |
-        certbot --nginx -m {{ letsencrypt_email }} --non-interactive --agree-tos --redirect -d {{ domain_name }}
-      # args:
-      #   creates: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
-
     - name: Setup Nginx as a Reverse Proxy
       blockinfile:
         path: /etc/nginx/sites-available/default
         block: |
           server {
+            server_name {{ domain_name }};
             location / {
-              proxy_pass https://localhost:8000;
+              proxy_pass http://localhost:8000;
               proxy_set_header Host $host;
               proxy_set_header X-Real-IP $remote_addr;
               proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -90,12 +89,17 @@
             }
 
             location /api {
-              proxy_pass https://localhost:9000;
+              proxy_pass http://localhost:9000;
               proxy_set_header Host $host;
               proxy_set_header X-Real-IP $remote_addr;
               proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
               proxy_set_header X-Forwarded-Proto $scheme;
             }}
+    - name: Generate SSL certificate using Certbot
+      shell: |
+        certbot --nginx -m {{ letsencrypt_email }} --non-interactive --agree-tos --redirect -d {{ domain_name }}
+      # args:
+      #   creates: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
 
     - name: Restart Nginx to apply config
       systemd:

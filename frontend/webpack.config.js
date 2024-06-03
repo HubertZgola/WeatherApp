@@ -23,13 +23,19 @@ module.exports = {
     ],
   },
   devServer: {
-    https: true,
+    https: false, // Ustaw na false, aby używać HTTP zamiast HTTPS
     contentBase: 'src/public',
     historyApiFallback: true,
     disableHostCheck: true,
     host: process.env.HOST || '0.0.0.0',
     port: process.env.PORT || 8000,
-  },
+    proxy: {
+        '/api': {
+            target: 'http://localhost:9000',
+            secure: false
+        }
+    }
+},
   output: {
     filename: '[name].[hash:8].js',
     publicPath: '/',

@@ -60,7 +60,7 @@
       block:
         - name: Remove default Nginx configuration
           file:
-            path: /etc/nginx/sites-enabled/default
+            path: /etc/nginx/sites-available/default
             state: absent
 
         - name: Generate SSL certificate with Certbot
@@ -75,7 +75,7 @@
             block: |
               server {
                 listen 80;
-                server_name weatherapp.francecentral.cloudapp.azure.com;
+                server_name {{ domain_name }};
                 return 301 https://$host$request_uri;
               }
 

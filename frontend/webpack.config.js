@@ -23,7 +23,7 @@ module.exports = {
     ],
   },
   devServer: {
-    https: false, // Ustaw na false, aby używać HTTP zamiast HTTPS
+    https: false,
     contentBase: 'src/public',
     historyApiFallback: true,
     disableHostCheck: true,

@@ -3,116 +3,113 @@
   hosts: myazurevm
   become: yes
   vars_prompt:
-    - name: "api_key"
-      prompt: "Please enter your OpenWeatherMap API key\n"
+    - name: api_key
+      prompt: "Please enter your OpenWeatherMap API key"
       private: no
 
-    - name: "letsencrypt_email"
+    - name: letsencrypt_email
       prompt: "Please enter your Let's Encrypt email"
       private: no
 
-    - name: "domain_name"
+    - name: domain_name
       prompt: "Please enter your domain name"
       private: no
 
   tasks:
-    - name: Update APT package list
+    - name: Update and upgrade APT packages
       apt:
         update_cache: yes
+        upgrade: dist
 
-    - name: Install dependencies
+    - name: Install required dependencies
       apt:
         name:
           - containerd
           - git
-        state: present
-
-    - name: Install certbot and python3-certbot-nginx
-      apt:
-        name:
           - certbot
           - python3-certbot-nginx
-        state: present
-
-    - name: Install Docker and Docker-Compose
-      apt:
-        name:
           - docker.io
           - docker-compose
+          - nginx
         state: present
-        update_cache: yes
 
-    - name: Clone repository
+    - name: Clone Weather App repository
       git:
         repo: "https://github.com/HubertZgola/weatherapp.git"
         dest: /weatherapp
         force: yes
 
-    - name: Create .env file in backend
+    - name: Update Docker Compose version in docker-compose.yml
+      replace:
+        path: /weatherapp/docker-compose.yml
+        regexp: "^version: .*$"
+        replace: 'version: "3.8"'
+
+    - name: Create .env file for backend
       copy:
         content: "APPID={{ api_key }}"
         dest: /weatherapp/backend/.env
 
-    - name: Build and run Docker containers using Docker Compose binary
-      command: /usr/local/bin/docker-compose -f /weatherapp/docker-compose.yml up -d --build
-      args:
-        chdir: /weatherapp
-
-    - name: Install Nginx
-      apt:
-        name: nginx
+    - name: Deploy Docker services
+      community.docker.docker_compose_v2:
+        project_src: /weatherapp
         state: present
+        build: always
 
-    - name: Remove default nginx config
-      file:
-        path: /etc/nginx/sites-enabled/default
-        state: absent
+    - name: Configure Nginx
+      block:
+        - name: Remove default Nginx configuration
+          file:
+            path: /etc/nginx/sites-enabled/default
+            state: absent
 
-    - name: Generate SSL certificate using Certbot
-      become: yes
-      shell: |
-        certbot --nginx -m {{ letsencrypt_email }} --non-interactive --agree-tos --redirect -d {{ domain_name }}
-      args:
-        creates: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
+        - name: Generate SSL certificate with Certbot
+          shell: >
+            certbot --nginx -m {{ letsencrypt_email }} --non-interactive --agree-tos --redirect -d {{ domain_name }}
+          args:
+            creates: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
 
-    - name: Setup Nginx as a Reverse Proxy
-      blockinfile:
-        path: /etc/nginx/sites-available/default
-        block: |
-          server {
-            listen 80;
-            server_name {{ domain_name }};
-            return 301 https://$host$request_uri;
-          }
+        - name: Set up Nginx as a reverse proxy
+          blockinfile:
+            path: /etc/nginx/sites-available/default
+            block: |
+              server {
+                listen 80;
+                server_name weatherapp.francecentral.cloudapp.azure.com;
+                return 301 https://$host$request_uri;
+              }
 
-          server {
-            listen 443 ssl;
-            server_name {{ domain_name }};
+              server {
+                listen 443 ssl;
+                server_name {{ domain_name }};
 
-            ssl_certificate /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem;
-            ssl_certificate_key /etc/letsencrypt/live/{{ domain_name }}/privkey.pem;
+                ssl_certificate /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem;
+                ssl_certificate_key /etc/letsencrypt/live/{{ domain_name }}/privkey.pem;
 
-            location / {
-              proxy_pass https://localhost:8000;
-              proxy_set_header Host $host;
-              proxy_set_header X-Real-IP $remote_addr;
-              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $scheme;
-            }
+                location / {
+                  proxy_pass http://localhost:8000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  error_log /var/log/nginx/frontend_error.log debug;
+                }
 
-            location /api/ {
-              proxy_pass https://localhost:9000;
-              proxy_set_header Host $host;
-              proxy_set_header X-Real-IP $remote_addr;
-              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $scheme;
-            }}
+                location /api/ {
+                  proxy_pass http://localhost:9000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                }
+              }
 
-    - name: Restart Nginx to apply config
-      systemd:
-        name: nginx
-        state: restarted
+        - name: Restart Nginx to apply configuration
+          systemd:
+            name: nginx
+            state: restarted
 
+    # Optional task to add SSH public key
     # - name: Add SSH public key
     #   authorized_key:
     #     user: ubuntu

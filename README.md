@@ -79,7 +79,7 @@ Testing:
 * Integration tests: Create integration tests to verify the interactions between frontend and backend components and the correct operation of the entire application.
 
 Functionality:
-Additional forecast options: Extend the app to display additional weather information, such as:
+Extend the app to display additional weather information, such as:
 * Weather forecast for a longer period (e.g. for a week or a month)
 * Detailed weather data (e.g. atmospheric pressure, air humidity, wind speed)
 * Weather alerts (e.g. warnings about storms, heat, frost)

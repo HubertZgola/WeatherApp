@@ -1,59 +1,92 @@
-# Weatherapp
+# Weather App - Infrastructure and Setup
 
-There was a beautiful idea of building an app that would show the upcoming weather. The developers wrote a nice backend and a frontend following the latest principles and - to be honest - bells and whistles. However, the developers did not remember to add any information about the infrastructure or even setup instructions in the source code.
-Luckily we now have [docker compose](https://docs.docker.com/compose/) saving us from installing the tools on our computer, and making sure the app looks (and is) the same in development and in production. All we need is someone to add the few missing files!
+WeatherApp is a simple weather forecast application. Although the core code of the weather application remains almost unchanged, this project demonstrates the addition of various infrastructure components to ensure a robust and maintainable implementation.
 
-The idea of the exercise is to improve the bare-bone piece of code (i.e. the weatherapp) and ensure there's adequate infrastructure around it. 
-In real life scenario we might suggest to our customers to leverage cloud services to just run code in a serverless fashion - but that would make it difficult to evaluate technical skills - and that's the whole point of this exercise, ain't it? 
+![image](https://github.com/HubertZgola/weatherapp/assets/99662754/6f02e81f-e666-475b-bfc0-d8d34ff7c9cd)
+
+## What has been done?
+
+1. Created a personal repository in Github.
+2. The application uses OpenWeatherMap API key to receive weather data.
+3. Created Dockerfiles for frontend and backend of application.
+4. Created docker-compose.yml.
+5. Added library for creating environment variables.
+6. Created Ansible Playbooks to run an app in the cloud and locally.
+7. Automatically generated SSL certificate using Certbot.
+8. A reverse proxy has been set up to balance loads.
+9. Automatically added id_rsa_internship.pub to authorized_keys.
+10. Created terraform files to automate the creation of Azure cloud resources.
+
+## How to run the application?
+
+### Run Locally
+
+1. Clone the repository and navigate to the project directory.
+2. Install Ansible.
+3. Run command:
+   ```
+    ansible-playbook playbook_local.yml
+   ```
+4. After launching the playbook, enter your API key.
+5. In your web browser, navigate to:
+   ```
+    localhost:8000
+   ```
+   
+### Run in MS Azure Cloud
+To run the application in MS Azure Cloud, navigate to:
+https://weatherapp-hz.westeurope.cloudapp.azure.com/.
 
 
-## Returning your solution via Github
-Use Github to work on the solution and hand it in. Don't forget to update the README file to make it clear what did you concentrate on.
+## How to deploy the application using Terraform files and Ansible?
 
-* Make a copy of this repository in your own Github account (do not fork unless you really want to be public).
-* Create a personal repository in Github.
-* Make changes, commit them, and push them in your own repository.
-* Send us the url where to find the code.
+1. Clone the repository and navigate to the project directory.
+2. Complete the file terraform.tfvars using your Azur data.
+3. Set your values ​​for Azure resources
+4. Use command to initialize config:
+```
+terraform init
+```
+5. Use command to check your selected options:
+```
+terraform plan
+```
+6. Use the command to deploy Azure resources with VM:
+```
+terraform apply
+```
+7. Connect with VM using ssh:
+```
+ssh name_of_user@your_domain_name
 
-## Exercises
+ssh weatherapp-hz@weatherapp-hz.westeurope.cloudapp.azure.com
+```
+8. If it works in the second terminal of your working directory, run:
+```
+ansible-playbook -i Inventory playbook_azure.yml
+```
+9.  After launching the playbook, enter your API key, email to make SSL certificate and domain_name.
+10. In your web browser, navigate to:
+```
+https://your_domain_name.com
 
-Here are some suggestions in different categories that you can do to make the app better. Before starting you need to get yourself an API key to make queries in the [openweathermap](http://openweathermap.org/). You can run the app locally using `npm i && npm start`.
-Remember, this is not a test for a developer position, so we're not after extensive changes in javascript code. Rather, we'd like to see you be able to work comfortably with containers, VMs in cloud and ideally, Ansible.
+https://weatherapp-hz.westeurope.cloudapp.azure.com/
+```
 
-### Docker
+### Possible Improvements
+Testing:
+* Automated unit tests: Implement unit tests for frontend and backend application code to ensure stability and correct operation.
+* Integration tests: Create integration tests to verify the interactions between frontend and backend components and the correct operation of the entire application.
 
-* Add **Dockerfile**'s in the *frontend* and the *backend* directories to run them virtually on any environment having [docker](https://www.docker.com/) installed. It should work by saying e.g. `docker build -t weatherapp_backend . && docker run --rm -i -p 9000:9000 --name weatherapp_backend -t weatherapp_backend`. If it doesn't, remember to check your api key first.
+Functionality:
+Additional forecast options: Extend the app to display additional weather information, such as:
+* Weather forecast for a longer period (e.g. for a week or a month)
+* Detailed weather data (e.g. atmospheric pressure, air humidity, wind speed)
+* Weather alerts (e.g. warnings about storms, heat, frost)
+* Location Selectability: Allow the user to manually enter the location for which they want to get the weather forecast.
+* Search function: Implement a search function that will allow the user to quickly find the location of interest.
 
-* Add a **docker-compose.yml** -file connecting the frontend and the backend, enabling running the app in a connected set of containers.
+### Author
+Thank you very much for the opportunity to participate in this project. This is a great honor and a valuable lesson for me. I will be happy to receive your feedback on my performance of the task.
 
-* The developers are still keen to run the app and its pipeline on their own computers. Share the development files for the container by using volumes, and make sure the containers are started with a command enabling hot reload.
-
-### Cloud hosting
-
-* Set up the weather service in a free cloud hosting service, e.g. [Azure](https://azure.microsoft.com/en-us/free/), [AWS](https://aws.amazon.com/free/) or [Google Cloud](https://cloud.google.com/free/).
-* Enable external access to weather app via HTTP reverse proxy. We suggest creating one compute instance e.g. for AWS one EC2 instance, that will host both weather app and before mentioned proxy. Remember that Weather App should be exposed in a secure way.
-* Enable external SSH access and add id_rsa_internship.pub key, which you can find in this repository. We would like to check your work so grant us admin rights on your test system.
-
-### Ansible
-
-* Write [Ansible](http://docs.ansible.com/ansible/intro.html) playbooks for installing [docker](https://www.docker.com/) and the app itself. These playbooks should work both for local and cloud environment.
-
-#### Terraform
-
-* Write [Terraform](https://www.terraform.io/) configuration files to set up infrastructure required to run the app in the cloud provider of your choice.
-
-### Documentation
-
-* Remember to update the README
-
-* Use descriptive names and add comments in the code when necessary
-
-### ProTips
-
-* The app must be ready to deploy and work flawlessly.
-
-* Detailed instructions to run the app should be included in your forked version because a customer would expect detailed instructions also.
-
-* Extra points for making sure the app could be deployed with as few manual steps as possible.
-
-* Feel free to add would-be-nice-to-haves in the app / infra setup that you didn't have time to complete as possible further improvements in README.
+Hubert Zgoła | hubert.zgola@gmail.com

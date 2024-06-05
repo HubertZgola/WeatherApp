@@ -41,7 +41,7 @@ https://weatherapp-hz.westeurope.cloudapp.azure.com/.
 ## How to deploy the application using Terraform files and Ansible?
 
 1. Clone the repository and navigate to the project directory.
-2. Complete the file terraform.tfvars using your Azur data.
+2. Complete the file terraform.tfvars using your Azure data.
 3. Set your values ​​for Azure resources
 4. Use command to initialize config:
 ```
